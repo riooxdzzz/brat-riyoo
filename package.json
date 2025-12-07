@@ -1,8 +1,12 @@
 {
   "name": "brat",
   "version": "1.0.0",
+  "type": "commonjs",
   "main": "index.js",
-  "license": "MIT",
+  "scripts": {
+    "dev": "simple api",
+    "start": "node app.js"
+  },
   "dependencies": {
     "axios": "^1.7.9",
     "dotenv": "^16.4.7",
