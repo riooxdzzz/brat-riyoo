@@ -1,133 +1,102 @@
-require('dotenv').config();
+require("dotenv").config();
 
-const express = require('express');
-const morgan = require('morgan');
-const { chromium } = require('playwright');
-const path = require('path');
-const os = require('os');
-const axios = require('axios');
+const chromium = require("@sparticuz/chromium");
+const playwright = require("playwright-core");
+const path = require("path");
+const os = require("os");
+const axios = require("axios");
 
-const app = express();
-const PORT = process.env.PORT || 3000;
-
-app.use(morgan('common'));
-
-// Buat browser instance
 let browser;
 
-const launchBrowser = async () => {
-  browser = await chromium.launch(); // Browser headless
-}
+async function getBrowser() {
+  if (browser) return browser;
 
-launchBrowser();
+  browser = await playwright.chromium.launch({
+    args: chromium.args,
+    executablePath: await chromium.executablePath(),
+    headless: true
+  });
+
+  return browser;
+}
 
 async function fetchCount() {
   try {
-    return (await axios.get("https://api.counterapi.dev/v1/aqul/brat/up")).data?.count || 0
+    const res = await axios.get("https://api.counterapi.dev/v1/aqul/brat/up");
+    return res.data?.count || 0;
   } catch {
-    return 0
+    return 0;
   }
 }
 
-app.use('*', async (req, res) => {
-  const text = req.query.text
-  const background = req.query.background
-  const color = req.query.color
-  const hit = fetchCount()
-  if (!text) return res.status(200).json({
-    author: 'zennn08 (aqul)',
-    repository: {
-      github: 'https://github.com/zennn08/brat-api/'
-    },
-    hit: await hit,
-    message: "Parameter `text` diperlukan",
-    runtime: {
-      os: os.type(),
-      platform: os.platform(),
-      architecture: os.arch(),
-      cpuCount: os.cpus().length,
-      uptime: `${os.uptime()} seconds`,
-      memoryUsage: `${Math.round((os.totalmem() - os.freemem()) / 1024 / 1024)} MB used of ${Math.round(os.totalmem() / 1024 / 1024)} MB`
-    }
-  })
-  if (!browser) {
-    await launchBrowser();
+module.exports = async (req, res) => {
+  const { text, background, color } = req.query;
+  const hit = await fetchCount();
+
+  if (!text) {
+    return res.status(200).json({
+      author: "zennn08 (aqul)",
+      repository: { github: "https://github.com/zennn08/brat-api/" },
+      hit,
+      message: "Parameter `text` diperlukan",
+      runtime: {
+        os: os.type(),
+        platform: os.platform(),
+        architecture: os.arch(),
+        cpuCount: os.cpus().length,
+        uptime: `${os.uptime()} seconds`,
+        memoryUsage: `${Math.round((os.totalmem() - os.freemem()) / 1024 / 1024)} MB used of ${Math.round(os.totalmem() / 1024 / 1024)} MB`
+      }
+    });
   }
-  const context = await browser.newContext({
-    viewport: {
-      width: 1536,
-      height: 695
-    }
-  });
+
+  const browser = await getBrowser();
+  const context = await browser.newContext({ viewport: { width: 1536, height: 695 } });
   const page = await context.newPage();
 
-  const filePath = path.join(__dirname, './site/index.html');
-
-  // Open https://www.bratgenerator.com/
+  const filePath = path.join(process.cwd(), "site/index.html");
   await page.goto(`file://${filePath}`);
 
-  // Click on <div> #toggleButtonWhite
-  await page.click('#toggleButtonWhite');
+  await page.click("#toggleButtonWhite");
+  await page.click("#textOverlay");
+  await page.click("#textInput");
+  await page.fill("#textInput", text);
 
-  // Click on <div> #textOverlay
-  await page.click('#textOverlay');
-
-  // Click on <input> #textInput
-  await page.click('#textInput');
-
-  // Fill "sas" on <input> #textInput
-  await page.fill('#textInput', text);
-
-  await page.evaluate((data) => {
-    if (data.background) {
-      $('.node__content.clearfix').css('background-color', data.background);
-    }
-    if (data.color) {
-      $('.textFitted').css('color', data.color);
-    }
+  await page.evaluate(({ background, color }) => {
+    if (background) document.querySelector(".node__content.clearfix").style.backgroundColor = background;
+    if (color) document.querySelector(".textFitted").style.color = color;
   }, { background, color });
 
-  const element = await page.$('#textOverlay');
+  const element = await page.$("#textOverlay");
   const box = await element.boundingBox();
 
-  res.set('Content-Type', 'image/png');
-  res.end(await page.screenshot({
+  const screenshot = await page.screenshot({
+    type: "png",
     clip: {
       x: box.x,
       y: box.y,
       width: 500,
       height: 500
     }
-  }));
+  });
+
   await context.close();
-});
 
-app.listen(PORT, () => {
-  console.log(`Server is running on port ${PORT}`);
-});
-
-// Menangani penutupan server
-const closeBrowser = async () => {
-  if (browser) {
-    console.log('Closing browser...');
-    await browser.close();
-    console.log('Browser closed');
-  }
+  res.setHeader("Content-Type", "image/png");
+  return res.status(200).send(screenshot);
 };
 
-process.on('SIGINT', async () => {
-  console.log('SIGINT received');
-  await closeBrowser();
-  process.exit(0);
-});
 
-process.on('SIGTERM', async () => {
-  console.log('SIGTERM received');
-  await closeBrowser();
-  process.exit(0);
-});
 
-process.on('exit', async () => {
-  console.log('Process exiting');
-  await closeBrowser();
-});
+if (!process.env.VERCEL) {
+  const express = require("express");
+  const morgan = require("morgan");
+
+  const app = express();
+  const port = process.env.PORT || 3000;
+
+  app.use(morgan("dev"));
+  app.get("*", module.exports);
+
+  app.listen(port, () => console.log(`🟢 Local Dev Mode → http://localhost:${port}`));
+}
