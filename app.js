@@ -1,7 +1,8 @@
 require("dotenv").config();
-const chromium = require("@sparticuz/chromium");
-const playwright = require("playwright-core");
+
 const express = require('express');
+const morgan = require('morgan');
+const { chromium } = require('playwright');
 const path = require('path');
 const os = require('os');
 const axios = require('axios');
@@ -58,9 +59,16 @@ app.get("/", async (req, res) => {
       });
     }
 
-    const browser = await getBrowser();
-    const context = await browser.newContext({ viewport: { width: 1536, height: 695 } });
-    const page = await context.newPage();
+    if (!browser) {
+    await launchBrowser();
+  }
+  const context = await browser.newContext({
+    viewport: {
+      width: 1536,
+      height: 695
+    }
+  });
+  const page = await context.newPage();
 
   const filePath = path.join(__dirname, './site/index.html');
 
