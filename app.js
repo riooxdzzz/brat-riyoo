@@ -2,7 +2,8 @@ require("dotenv").config();
 
 const express = require('express');
 const morgan = require('morgan');
-const { chromium } = require('playwright');
+const chromium = require('@sparticuz/chromium');
+const playwright = require('playwright-core');
 const path = require('path');
 const os = require('os');
 const axios = require('axios');
@@ -15,10 +16,17 @@ app.use(express.static(path.join(__dirname)));
 let browser;
 
 const launchBrowser = async () => {
-  browser = await chromium.launch(); 
-}
+  if (browser) return browser;
 
-launchBrowser();
+  browser = await playwright.chromium.launch({
+    args: chromium.args,
+    executablePath: await chromium.executablePath(),
+    headless: chromium.headless,
+    ignoreHTTPSErrors: true,
+  });
+
+  return browser;
+};
 
 async function fetchCount() {
   try {
@@ -50,45 +58,34 @@ app.get("/", async (req, res) => {
       });
     }
 
-    if (!browser) {
     await launchBrowser();
-  }
-  const context = await browser.newContext({
-    viewport: {
-      width: 1536,
-      height: 695
-    }
-  });
-  const page = await context.newPage();
 
-  const filePath = path.join(__dirname, './site/index.html');
+    const context = await browser.newContext({
+      viewport: { width: 1536, height: 695 }
+    });
 
-  // Open https://www.bratgenerator.com/
-  await page.goto(`file://${filePath}`);
+    const page = await context.newPage();
 
-  // Click on <div> #toggleButtonWhite
-  await page.click('#toggleButtonWhite');
+    const filePath = path.join(__dirname, './site/index.html');
 
-  // Click on <div> #textOverlay
-  await page.click('#textOverlay');
+    await page.goto(`file://${filePath}`, { waitUntil: 'networkidle' });
 
-  // Click on <input> #textInput
-  await page.click('#textInput');
+    await page.click('#toggleButtonWhite');
+    await page.click('#textOverlay');
+    await page.click('#textInput');
+    await page.fill('#textInput', text);
 
-  // Fill "sas" on <input> #textInput
-  await page.fill('#textInput', text);
+    await page.evaluate((data) => {
+      if (data.background) {
+        document.querySelector('.node__content.clearfix').style.backgroundColor = data.background;
+      }
+      if (data.color) {
+        document.querySelector('.textFitted').style.color = data.color;
+      }
+    }, { background, color });
 
-  await page.evaluate((data) => {
-    if (data.background) {
-      $('.node__content.clearfix').css('background-color', data.background);
-    }
-    if (data.color) {
-      $('.textFitted').css('color', data.color);
-    }
-  }, { background, color });
-
-  const element = await page.$('#textOverlay');
-  const box = await element.boundingBox();
+    const element = await page.$('#textOverlay');
+    const box = await element.boundingBox();
 
     const screenshot = await page.screenshot({
       type: "png",
