@@ -1,12 +1,16 @@
 require("dotenv").config();
 const chromium = require("@sparticuz/chromium");
 const playwright = require("playwright-core");
-const express = require("express");
-const path = require("path");
-const os = require("os");
-const axios = require("axios");
+const express = require('express');
+const path = require('path');
+const os = require('os');
+const axios = require('axios');
 
 const app = express();
+const PORT = process.env.PORT || 3000;
+
+app.use(express.static(path.join(__dirname)));
+
 let browser;
 
 async function getBrowser() {
@@ -39,7 +43,7 @@ app.get("/", async (req, res) => {
 
     if (!text) {
       return res.status(200).json({
-        author: "zennn08 (aqul)",
+        author: "Riyoo",
         repository: { github: "https://github.com/zennn08/brat-api/" },
         hit,
         message: "Parameter `text` diperlukan",
@@ -95,11 +99,10 @@ app.get("/", async (req, res) => {
   }
 });
 
-// ==== EXPORT UNTUK VERCEL ====
-module.exports = app;
-
-// ==== LOCAL DEVELOPMENT MODE ====
 if (require.main === module) {
-  const PORT = process.env.PORT || 3000;
-  app.listen(PORT, () => console.log(`⚡ Running local at http://localhost:${PORT}`));
+  app.listen(PORT, () => {
+    console.log(`Server running → http://localhost:${PORT}`);
+  });
 }
+
+module.exports = app;
