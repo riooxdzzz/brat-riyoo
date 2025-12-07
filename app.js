@@ -1,4 +1,4 @@
-require("dotenv").config();
+
 const chromium = require("@sparticuz/chromium");
 const playwright = require("playwright-core");
 const express = require('express');
