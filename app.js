@@ -62,21 +62,34 @@ app.get("/", async (req, res) => {
     const context = await browser.newContext({ viewport: { width: 1536, height: 695 } });
     const page = await context.newPage();
 
-    const filePath = path.join(process.cwd(), "site/index.html");
-    await page.goto(`file://${filePath}`);
+  const filePath = path.join(__dirname, './site/index.html');
 
-    await page.click("#toggleButtonWhite");
-    await page.click("#textOverlay");
-    await page.click("#textInput");
-    await page.fill("#textInput", text);
+  // Open https://www.bratgenerator.com/
+  await page.goto(`file://${filePath}`);
 
-    await page.evaluate(({ background, color }) => {
-      if (background) document.querySelector(".node__content.clearfix").style.backgroundColor = background;
-      if (color) document.querySelector(".textFitted").style.color = color;
-    }, { background, color });
+  // Click on <div> #toggleButtonWhite
+  await page.click('#toggleButtonWhite');
 
-    const element = await page.$("#textOverlay");
-    const box = await element.boundingBox();
+  // Click on <div> #textOverlay
+  await page.click('#textOverlay');
+
+  // Click on <input> #textInput
+  await page.click('#textInput');
+
+  // Fill "sas" on <input> #textInput
+  await page.fill('#textInput', text);
+
+  await page.evaluate((data) => {
+    if (data.background) {
+      $('.node__content.clearfix').css('background-color', data.background);
+    }
+    if (data.color) {
+      $('.textFitted').css('color', data.color);
+    }
+  }, { background, color });
+
+  const element = await page.$('#textOverlay');
+  const box = await element.boundingBox();
 
     const screenshot = await page.screenshot({
       type: "png",
