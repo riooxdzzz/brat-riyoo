@@ -14,26 +14,17 @@ app.use(express.static(path.join(__dirname)));
 
 let browser;
 
-async function getBrowser() {
-  if (browser) return browser;
-
-  const executablePath = await chromium.executablePath() || "/usr/bin/google-chrome";
-
-  browser = await playwright.chromium.launch({
-    args: chromium.args,
-    executablePath,
-    headless: true,
-  });
-
-  return browser;
+const launchBrowser = async () => {
+  browser = await chromium.launch(); 
 }
+
+launchBrowser();
 
 async function fetchCount() {
   try {
-    const res = await axios.get("https://api.counterapi.dev/v1/aqul/brat/up");
-    return res.data?.count || 0;
+    return (await axios.get("https://api.counterapi.dev/v1/aqul/brat/up")).data?.count || 0
   } catch {
-    return 0;
+    return 0
   }
 }
 
